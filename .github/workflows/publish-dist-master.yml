@@ -1,0 +1,51 @@
+# Builds the dist bundle on every push to master and attaches it as a zip
+# to a rolling "latest" GitHub Release on this repository.
+
+name: Publish dist (master)
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm test -- --run
+
+  publish-dist:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run build-qdrant
+      - run: npm sbom --sbom-format spdx > dist/qdrant-web-ui.spdx.json
+      - name: Archive dist folder
+        uses: montudor/action-zip@a8e75c9faefcd80fac3baf53ef40b9b119d5b702 # v1
+        with:
+          args: zip -r dist-qdrant.zip dist
+      - name: Publish rolling "latest" release
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
+        with:
+          tag_name: latest
+          name: Latest master build
+          body: Automated dist build from the latest push to master (${{ github.sha }}).
+          # make_latest:true so github.com/.../releases/latest/download/dist-qdrant.zip
+          # resolves to this build. A prerelease can never be the "latest" pointer.
+          prerelease: false
+          make_latest: true
+          files: dist-qdrant.zip
