@@ -1,6 +1,6 @@
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Box, Button, Card, CardContent, CardHeader, IconButton, Tooltip } from '@mui/material';
+import { Box, CardContent, IconButton, Tooltip } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useClient } from '../../context/client-context';
 import { CopyButton } from '../Common/CopyButton';
@@ -9,12 +9,18 @@ import { useSnackbar } from 'notistack';
 import { getSnackbarOptions } from '../Common/utils/snackbarOptions';
 import { bigIntJSON } from '../../common/bigIntJSON';
 import CollectionAliases from './CollectionAliases';
+import CollectionMetadata from './Metadata/CollectionMetadata';
+import CollectionActionsButton from './CollectionActionsButton';
+import PayloadIndexesCard from './PayloadIndexesCard';
 import JsonViewerCustom from '../Common/JsonViewerCustom';
+import CollapsibleCard from '../Common/CollapsibleCard';
 import {
-  makeCollectionInfoValueTypes,
+  DescriptionRow,
   useOpenApiSchemas,
   ColorspaceProvider,
   SchemasProvider,
+  PathMapProvider,
+  buildPathMap,
 } from './CollectionInfoKeyRenderer';
 import { useJsonViewerTheme } from '../../theme/json-viewer-theme';
 
@@ -23,6 +29,9 @@ export const CollectionInfo = ({ collectionName }) => {
   const { client: qdrantClient, isRestricted } = useClient();
   const [collection, setCollection] = React.useState({});
   const [clusterInfo, setClusterInfo] = React.useState(null);
+  const [createAliasOpen, setCreateAliasOpen] = useState(false);
+  const [addMetadataOpen, setAddMetadataOpen] = useState(false);
+  const [createIndexOpen, setCreateIndexOpen] = useState(false);
 
   const fetchClusterInfo = () => {
     if (isRestricted) {
@@ -42,14 +51,10 @@ export const CollectionInfo = ({ collectionName }) => {
       });
   };
 
-  const refreshAll = () => {
-    fetchCollection();
-    fetchClusterInfo();
-  };
-
-  useEffect(() => {
-    refreshAll();
-  }, [collectionName]);
+  const hasMetadata =
+    collection.config?.metadata != null &&
+    typeof collection.config.metadata === 'object' &&
+    Object.keys(collection.config.metadata).length > 0;
 
   const fetchCollection = () => {
     qdrantClient
@@ -63,6 +68,15 @@ export const CollectionInfo = ({ collectionName }) => {
         enqueueSnackbar(err.message, getSnackbarOptions('error', closeSnackbar));
       });
   };
+
+  const refreshAll = () => {
+    fetchCollection();
+    fetchClusterInfo();
+  };
+
+  useEffect(() => {
+    refreshAll();
+  }, [collectionName]);
 
   const triggerOptimizers = () => {
     qdrantClient
@@ -78,81 +92,93 @@ export const CollectionInfo = ({ collectionName }) => {
       });
   };
 
-  // Compute colorspace here (outside json-viewer tree) where useTheme() resolves correctly.
-  // The json-viewer bundles its own MUI, so useTheme() inside custom value renderers
-  // returns a default theme instead of the project's theme.
-  const { theme: infoTheme } = useJsonViewerTheme('info');
-  const colorspace = useMemo(
+  const triggerOptimizersDisabled =
+    collection.status === 'green' ||
+    collection.optimizer_status?.error === `optimizations pending, awaiting update operation`;
+
+  const { colorspace } = useJsonViewerTheme('info');
+  const colorspaceSubset = useMemo(
     () => ({
-      base02: infoTheme.base02,
-      base08: infoTheme.base08,
-      base09: infoTheme.base09,
-      base0B: infoTheme.base0B,
-      base0E: infoTheme.base0E,
-      base0F: infoTheme.base0F,
-      comment: infoTheme.base0D,
+      base02: colorspace.base02,
+      base08: colorspace.base08,
+      base09: colorspace.base09,
+      base0B: colorspace.base0B,
+      base0E: colorspace.base0E,
+      base0F: colorspace.base0F,
+      comment: colorspace.comment,
     }),
-    [infoTheme]
+    [colorspace]
   );
 
-  // Load OpenAPI schemas (deduped fetch, cached as singleton promise)
+  const pathMap = useMemo(() => buildPathMap(collection), [collection]);
+
   const openApiSchemas = useOpenApiSchemas();
-  const valueTypes = useMemo(() => makeCollectionInfoValueTypes(openApiSchemas), [openApiSchemas]);
+
+  const metadata = collection.config?.metadata;
 
   return (
     <Box display="flex" flexDirection="column" gap={5}>
-      <CollectionAliases collectionName={collectionName} />
-      <Card elevation={0}>
-        <CardHeader
-          title={'Collection Info'}
-          variant="heading"
-          sx={{
-            flexGrow: 1,
-          }}
-          action={
-            <Box display="flex" gap={1}>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={triggerOptimizers}
-                disabled={
-                  collection.status === 'green' ||
-                  collection.optimizer_status?.error === `optimizations pending, awaiting update operation`
-                }
-                sx={{
-                  py: 0.75,
-                  mb: 0.2,
-                }}
-              >
-                Trigger optimizers
-              </Button>
-              <CopyButton text={bigIntJSON.stringify(collection)} />
-              <Tooltip title="Refresh collection info">
-                <IconButton size="small" sx={{ color: 'text.primary' }} onClick={refreshAll}>
-                  <RefreshIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          }
-        />
+      <CollectionAliases
+        collectionName={collectionName}
+        forceCreateOpen={createAliasOpen}
+        onForceCreateClose={() => setCreateAliasOpen(false)}
+      />
+      <CollapsibleCard
+        title="Collection Info"
+        action={
+          <Box display="flex" gap={1} alignItems="center">
+            <CollectionActionsButton
+              hasMetadata={hasMetadata}
+              onCreateAlias={() => setCreateAliasOpen(true)}
+              onAddMetadata={() => setAddMetadataOpen(true)}
+              onCreatePayloadIndex={() => setCreateIndexOpen(true)}
+              onTriggerOptimizers={triggerOptimizers}
+              triggerOptimizersDisabled={triggerOptimizersDisabled}
+            />
+            <CopyButton text={bigIntJSON.stringify(collection)} />
+            <Tooltip title="Refresh collection info">
+              <IconButton size="small" sx={{ color: 'text.primary' }} onClick={refreshAll}>
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        }
+      >
         <CardContent>
-          <ColorspaceProvider value={colorspace}>
+          <ColorspaceProvider value={colorspaceSubset}>
             <SchemasProvider value={openApiSchemas}>
-              <JsonViewerCustom
-                theme="info"
-                value={collection}
-                displayDataTypes={false}
-                displayObjectSize={false}
-                rootName={false}
-                enableClipboard={false}
-                valueTypes={valueTypes}
-              />
+              <PathMapProvider value={pathMap}>
+                <JsonViewerCustom
+                  theme="info"
+                  value={collection}
+                  displayDataTypes={false}
+                  displayObjectSize={false}
+                  enableClipboard={false}
+                >
+                  {openApiSchemas && <DescriptionRow />}
+                </JsonViewerCustom>
+              </PathMapProvider>
             </SchemasProvider>
           </ColorspaceProvider>
         </CardContent>
-      </Card>
+      </CollapsibleCard>
+      <CollectionMetadata
+        collectionName={collectionName}
+        metadata={metadata}
+        onMetadataChange={fetchCollection}
+        forceAddOpen={addMetadataOpen}
+        onForceAddClose={() => setAddMetadataOpen(false)}
+      />
 
-      {clusterInfo && <ClusterInfo sx={{ mt: 5 }} collectionCluster={clusterInfo} />}
+      <PayloadIndexesCard
+        collectionName={collectionName}
+        payloadSchema={collection.payload_schema}
+        onSchemaChange={fetchCollection}
+        forceCreateOpen={createIndexOpen}
+        onForceCreateClose={() => setCreateIndexOpen(false)}
+      />
+
+      {clusterInfo && <ClusterInfo collectionCluster={clusterInfo} />}
     </Box>
   );
 };

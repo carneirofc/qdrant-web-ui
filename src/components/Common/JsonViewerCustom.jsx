@@ -1,39 +1,44 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { JsonViewer } from '@textea/json-viewer';
+import JsonView from './JsonViewBase';
 import { useJsonViewerTheme } from '../../theme/json-viewer-theme';
+import { bigIntJSON } from '../../common/bigIntJSON';
 
-/**
- * Wrapper component for JsonViewer that automatically applies theme overrides
- * and allows additional sx styles to be passed through
- *
- * @param {Object} props - Component props
- * @param {any} props.value - The JSON value to display
- * @param {Object} props.sx - Additional sx styles to merge with theme overrides
- * @param {Object} props.jsonViewerProps - Additional props to pass to JsonViewer
- * @param {string} props.theme - JsonViewer theme name (default: 'qdrant-custom')
- * @return {JSX.Element} Themed JsonViewer component with overrides
- */
-const JsonViewerWrapper = ({ sx = {}, jsonViewerProps = {}, theme: themeName = 'qdrant-custom', ...otherProps }) => {
-  const { theme, overrides } = useJsonViewerTheme(themeName);
+const JsonViewerWrapper = ({
+  style: styleProp = {},
+  theme: themeName = 'qdrant-custom',
+  enableClipboard = true,
+  collapsed,
+  children,
+  ...otherProps
+}) => {
+  const { style: themeStyle } = useJsonViewerTheme(themeName);
+
+  const mergedStyle = useMemo(() => ({ ...themeStyle, ...styleProp }), [themeStyle, styleProp]);
+
+  const handleBeforeCopy = useCallback((_copyText, _keyName, value) => {
+    return typeof value === 'string' ? value : bigIntJSON.stringify(value, null, 2);
+  }, []);
 
   return (
-    <JsonViewer
-      theme={theme}
-      {...jsonViewerProps}
-      sx={{
-        ...overrides,
-        ...sx,
-      }}
+    <JsonView
+      style={mergedStyle}
+      enableClipboard={enableClipboard}
+      collapsed={collapsed}
+      beforeCopy={handleBeforeCopy}
       {...otherProps}
-    />
+    >
+      {children}
+    </JsonView>
   );
 };
 
 JsonViewerWrapper.propTypes = {
-  sx: PropTypes.object,
-  jsonViewerProps: PropTypes.object,
+  style: PropTypes.object,
   theme: PropTypes.string,
+  enableClipboard: PropTypes.bool,
+  collapsed: PropTypes.oneOfType([PropTypes.bool, PropTypes.number]),
+  children: PropTypes.node,
 };
 
 export default JsonViewerWrapper;

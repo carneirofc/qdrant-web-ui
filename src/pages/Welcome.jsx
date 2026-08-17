@@ -4,9 +4,10 @@ import AnnouncementBanner from '../components/Common/AnnouncementBanner';
 import CardBanner from '../components/Common/CardBanner';
 import InfoCard from '../components/Common/InfoCard/InfoCard';
 import TutorialLinks from '../components/InteractiveTutorial/TutorialLinks';
-import { Workflow, FileCode } from 'lucide-react';
+import { Workflow, FileCode, BrainCircuit } from 'lucide-react';
 import { useExternalInfo } from '../context/external-info-context';
 import { getFullPath } from '../lib/common-helpers';
+import { PAGE_CONTENT_WIDTH } from '../theme/constants';
 
 const Welcome = () => {
   const [showBanner, setShowBanner] = useState(true);
@@ -44,7 +45,7 @@ const Welcome = () => {
         gap: '40px',
         p: 5,
         margin: 'auto',
-        maxWidth: '1120px',
+        maxWidth: PAGE_CONTENT_WIDTH.content,
       }}
     >
       {displayBannerContent()}
@@ -78,11 +79,22 @@ const Welcome = () => {
 
       <Box component="section">
         <Typography component="h2" variant="h6" mb="1rem">
-          Connect to your Project or Start with Samples
+          Getting Started Resources
         </Typography>
 
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 8, md: 4 }}>
+            <InfoCard
+              icon={BrainCircuit}
+              title="Agent Skills"
+              description={
+                'Download our AI Agent Skills, crafted by our team of experts to strengthen your Qdrant development.'
+              }
+              href="https://qdrant.tech/documentation/skills/"
+              showCta={false}
+            />
+          </Grid>
+          <Grid size={{ xs: 8, md: 4 }}>
             <InfoCard
               icon={Workflow}
               title="API Reference"
@@ -93,11 +105,13 @@ const Welcome = () => {
               showCta={false}
             />
           </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 8, md: 4 }}>
             <InfoCard
               icon={FileCode}
-              title="Load Sample Data"
-              description={`Follow this tutorial to import a remote snapshot and explore vector search with real data in just a few steps.`}
+              title="Sample Data"
+              description={
+                'Easily import a remote data snapshot and explore vector search with real data in just a few steps.'
+              }
               href="/datasets"
               showCta={false}
             />
