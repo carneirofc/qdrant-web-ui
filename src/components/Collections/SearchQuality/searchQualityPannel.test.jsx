@@ -90,7 +90,7 @@ describe('SearchQualityPannel', () => {
         <SearchQualityPanel collectionName={COLLECTION_NAME} vectors={VECTORS} />
       </MemoryRouter>
     );
-    const switchButton = screen.getByRole('checkbox');
+    const switchButton = screen.getByRole('switch', { name: 'Advanced Mode' });
     fireEvent.click(switchButton);
     expect(switchButton).toBeChecked();
     expect(screen.getByText('FilterEditorWindow')).toBeInTheDocument();
